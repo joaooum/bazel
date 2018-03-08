@@ -49,11 +49,13 @@ def main():
   # Run a subprocess, propagate the runfiles envvar to it. The subprocess will
   # use this process's runfiles manifest or runfiles directory.
   if IsWindows():
-    env = {"SYSTEMROOT": os.environ["SYSTEMROOT"]}
+    env = {"SYSTEMROOT": os.environ["SYSTEMROOT"],
+           # The Bash runfiles library needs the Bash binutils on the path.
+           "PATH": os.environ["PATH"]}
   else:
     env = {}
   env.update(r.EnvVars())
-  for lang in ["py", "java"]:
+  for lang in ["py", "java", "sh"]:
     p = subprocess.Popen(
         [r.Rlocation(ChildBinaryName(lang))],
         env=env,
