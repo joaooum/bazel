@@ -14,115 +14,107 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script defines utility functions to handle sh_binary runfiles.
+# This script defines utility functions to handle sh_binary/sh_test runfiles.
 #
-# On Windows, this script needs $RUNFILES_MANIFEST_FILE to point to the absolute
-# path of the runfiles manifest file. If the envvar is undefined or empty, this
-# script calls "exit 1".
+# This script requires that at least one of $RUNFILES_MANIFEST_FILE or
+# $RUNFILES_DIR be set, otherwise the script fails.
 #
-# On Linux/macOS, this script needs $RUNFILES_DIR to point to the absolute path
-# of the runfiles directory. If the envvar is undefined or empty, this script
-# tries to determine the value by looking for the nearest "*.runfiles" parent
-# directory of "$0", and if not found, this script calls "exit 1".
+# Usage:
+#
+# 1. Depend on this runfiles library from your build rule:
+#
+#      sh_binary(
+#          name = "my_binary",
+#          ...
+#          deps = ["@bazel_tools//tools/runfiles:sh-runfiles"],
+#      )
+#
+# 2. Source the runfiles library.
+#    Since the runfiles library itself defines rlocation which you would need to
+#    look up the library's runtime location, we have a chicken-and-egg problem.
+#    Therefore you need to insert the following code snippet to the top of your
+#    main script:
+#
+#
+#      set -euo pipefail
+#      # --- begin runfiles.sh initialization ---
+#      if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -z "${RUNFILES_DIR:-}" ]]; then
+#        if [[ -f "$0.runfiles_manifest" ]]; then
+#          export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+#        elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+#          export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+#        elif [[ -d "$0.runfiles" ]]; then
+#          export RUNFILES_DIR="$0.runfiles" 
+#        fi
+#      fi
+#      if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+#        source "$(grep -m1 "^bazel_tools/tools/runfiles/runfiles.sh " \
+#                  "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"
+#      elif [[ -n "${RUNFILES_DIR:-}" ]]; then
+#        source "${RUNFILES_DIR}/bazel_tools/tools/runfiles/runfiles.sh"
+#      else
+#        echo >&2 "ERROR: cannot find @bazel_tools//tools/runfiles:runfiles.sh"
+#        exit 1
+#      fi
+#      # --- end runfiles.sh initialization ---
 
-set -eu
 
 # Check that we can find the bintools, otherwise we would see confusing errors.
-stat "$0" >&/dev/null || {
+which stat >&/dev/null || {
   echo >&2 "ERROR[runfiles.sh]: cannot locate GNU coreutils; check your PATH."
-  echo >&2 "    You may need to run 'export PATH=/bin:/usr/bin:\$PATH' (on Linux/macOS)"
-  echo >&2 "    or 'set PATH=c:\\tools\\msys64\\usr\\bin;%PATH%' (on Windows)."
+  echo >&2 "     Run the following on Linux/macOS:"
+  echo >&2 "         export PATH=\"/bin:/usr/bin:\$PATH\""
+  echo >&2 "     Run the following on Windows (adjust for your MSYS path):"
+  echo >&2 "         set PATH=c:\\tools\\msys64\\usr\\bin;%PATH%"
   exit 1
 }
 
-# Now that we have bintools on PATH, determine the current platform and define
-# `is_windows` accordingly.
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
-  function is_windows() {
-    true
-  }
+  isabs_pattern="^[a-zA-Z]:[/\\]"  # matches an absolute Windows path
   ;;
 *)
-  function is_windows() {
-    false
-  }
+  isabs_pattern="^/.*"  # matches an absolute Unix path
   ;;
 esac
-export -f is_windows
 
-# Define `is_absolute` unless already defined.
-if ! type is_absolute &>/dev/null; then
-  function is_absolute() {
-    if is_windows; then
-      echo "$1" | grep -q "^[a-zA-Z]:[/\\]"
-    else
-      [[ "$1" = /* ]]
-    fi
-  }
-  export -f is_absolute
-fi
-
-# Define `rlocation` unless already defined.
-if ! type rlocation &>/dev/null; then
-  if is_windows; then
-    # If RUNFILES_MANIFEST_FILE is empty/undefined, bail out.
-    # On Windows there's no runfiles tree with symlinks like on Linux/macOS, so
-    # we cannot locate the runfiles root and the manifest by walking the path
-    # of $0.
-    if [[ -z "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-      echo >&2 "ERROR[runfiles.sh]: RUNFILES_MANIFEST_FILE is empty/undefined"
-      exit 1
-    fi
-
-    # Read the runfiles manifest to memory, to quicken runfiles lookups.
-    # First, read each line of the manifest into `runfiles_lines`. We need to do
-    # this while IFS is still the newline character. In the subsequent loop,
-    # after we reset IFS, we can construct the `line_split` arrays.
-    old_ifs="${IFS:-}"
-    IFS=$'\n'
-    runfiles_lines=( $(sed -e 's/\r//g' "$RUNFILES_MANIFEST_FILE") )
-    IFS="$old_ifs"
-    # Now create a dictionary from `runfiles_lines`. Creating `line_split` uses
-    # $IFS so we could not have done this without a helper array.
-    declare -A runfiles_dict
-    for line in "${runfiles_lines[@]}"; do
-      line_split=($line)
-      runfiles_dict[${line_split[0]}]="${line_split[@]:1}"
-    done
+# Print to stdout the runtime location of a data-dependency
+# $1 is the the runfiles-relative path of the data-dependency.
+# The function fails if $1 contains "..". If $1 is absolute, the function prints
+# it as-is.
+function rlocation() {
+  if [[ "$1" =~ $isabs_pattern ]]; then
+    echo $1
+  elif [[ "$1" =~ \.\. ]]; then
+    echo >&2 "ERROR: rlocation($1): contains uplevel references"
+    exit 1
   else
-    # If RUNFILES_DIR is empty/undefined, try locating the runfiles directory.
-    # When the user runs a sh_binary's output directly, it's just a symlink to
-    # the main script. There's no launcher like on Windows which would set this
-    # environment variable.
-    # Walk up the path of $0 looking for a runfiles directory.
-    if [[ -z "${RUNFILES_DIR:-}" ]]; then
-      RUNFILES_DIR="$(dirname "$0")"
-      while [[ "$RUNFILES_DIR" != "/" ]]; do
-        if [[ "$RUNFILES_DIR" = *.runfiles ]]; then
-          break
-        else
-          RUNFILES_DIR="$(dirname "$RUNFILES_DIR")"
-        fi
-      done
-      if [[ "$RUNFILES_DIR" = "/" ]]; then
-        echo >&2 "ERROR[runfiles.sh]: RUNFILES_DIR is empty/undefined, and cannot find a"
-        echo >&2 "    runfiles directory on the path of this script"
-        exit 1
-      fi
+    if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+      grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-
+    else
+      echo "${RUNFILES_DIR}/$1"
     fi
   fi
+}
+export -f rlocation
 
-  function rlocation() {
-    if is_absolute "$1"; then
-      echo "$1"
+# Exports the environment variables that subprocesses may need to use runfiles.
+# If a subprocess is a Bazel-built binary rule that also uses the runfiles
+# libraries under @bazel_tools//tools/runfiles, then that binary needs these
+# envvars in order to initialize its own runfiles library.
+function runfiles_export_envvars() {
+  if [[ -z "${RUNFILES_DIR:-}" ]]; then
+    if [[ "${RUNFILES_MANIFEST_FILE:-}" =~ /MANIFEST$ ]]; then
+      export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%/MANIFEST}"
     else
-      if is_windows; then
-        echo "${runfiles_dict[$1]}"
-      else
-        echo "${RUNFILES_DIR}/$1"
-      fi
+      export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%_manifest}"
     fi
-  }
-  export -f rlocation
-fi
+  fi
+  if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -n "${RUNFILES_DIR:-}" ]]; then
+    export RUNFILES_MANIFEST_FILE=${RUNFILES_DIR}/MANIFEST
+  fi
+  export "RUNFILES_MANIFEST_FILE=${RUNFILES_MANIFEST_FILE:-}"
+  export "RUNFILES_DIR=${RUNFILES_DIR:-}"
+  export "JAVA_RUNFILES=${RUNFILES_DIR:-}"
+}
+export -f runfiles_export_envvars
