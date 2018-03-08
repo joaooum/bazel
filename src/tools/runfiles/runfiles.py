@@ -128,8 +128,6 @@ class _Runfiles(object):
       raise TypeError()
     if ".." in path:
       raise ValueError("path contains uplevel references: \"%s\"" % path)
-    if path[0] == "\\":
-      raise ValueError("path is absolute without a drive letter: \"%s\"" % path)
     if os.path.isabs(path):
       return path
     return self._strategy.RlocationChecked(path)
@@ -193,6 +191,8 @@ class _ManifestBased(object):
         # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": directory,
+        "RUNFILES_LIBRARY_SH":
+            self.RlocationChecked("bazel_tools/tools/runfiles/runfiles.sh"),
     }
 
 
@@ -218,4 +218,6 @@ class _DirectoryBased(object):
         # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": self._runfiles_root,
+        "RUNFILES_LIBRARY_SH":
+            self.RlocationChecked("bazel_tools/tools/runfiles/runfiles.sh"),
     }

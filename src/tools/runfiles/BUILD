@@ -23,6 +23,7 @@ filegroup(
         "runfiles.cc",
         "runfiles.h",
         "runfiles.py",
+        "runfiles.sh",
         "//src/tools/runfiles/java/com/google/devtools/build/runfiles:embedded_tools",
     ],
     visibility = ["//src:__pkg__"],
