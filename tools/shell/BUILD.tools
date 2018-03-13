@@ -1,0 +1,9 @@
+exports_files([
+    "toolchains.bzl",
+    "BUILD.tpl",
+])
+
+toolchain_type(
+    name = "shell_toolchain_type",
+    visibility = ["//visibility:public"],
+)
