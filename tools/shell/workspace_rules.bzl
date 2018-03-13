@@ -1,25 +1,39 @@
+def _is_windows(repository_ctx):
+  return repository_ctx.os.name.startswith("windows")
+
+
 def _find_shell(repository_ctx):
+  shell_path = None
+  run_command_flag = None
   bazel_sh = repository_ctx.os.environ.get("BAZEL_SH")
+  print("bazel_sh=(%s)" % bazel_sh)
   if bazel_sh:
     if (bazel_sh.endswith("bash")
         or bazel_sh.endswith("bash.exe")
         or bazel_sh.endswith("sh")):
-      return bazel_sh, "-c"
+      print("bazel_sh=(%s)" % bazel_sh)
+      shell_path = bazel_sh
+      run_command_flag = "-c"
     else:
-      return bazel_sh, None
+      shell_path = bazel_sh
   else:
-    if repository_ctx.os.name.startswith("windows"):
+    if _is_windows(repository_ctx):
       bash = repository_ctx.which("bash.exe")
+      print("bash=(%s)" % bash)
       if bash:
         lbash = bash.lower()
         if "msys" in lbash and "windows" not in lbash:
-          return bash, "-c"
+          shell_path = bash
+          run_command_flag = "-c"
     else:
       bash = repository_ctx.which("bash")
       if bash:
-        return bash, "-c"
+        shell_path = bash
+        run_command_flag = "-c"
 
-  return None, None
+  if shell_path and _is_windows(repository_ctx):
+    shell_path = shell_path.replace("\\", "/")
+  return shell_path, run_command_flag
 
 
 def _quote_or_none(v):
