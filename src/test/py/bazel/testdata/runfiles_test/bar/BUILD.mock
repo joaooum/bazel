@@ -20,5 +20,5 @@ sh_binary(
     name = "bar-sh",
     srcs = ["bar.sh"],
     data = ["bar-sh-data.txt"],
-    deps = ["@bazel_tools//tools/runfiles:sh-runfiles"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

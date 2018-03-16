@@ -1,0 +1,5 @@
+sh_library(
+    name = "runfiles",
+    srcs = ["runfiles.sh"],
+    visibility = ["//visibility:public"],
+)

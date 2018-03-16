@@ -30,5 +30,5 @@ sh_binary(
         "//bar:bar-py",
         "//bar:bar-sh",
     ],
-    deps = ["@bazel_tools//tools/runfiles:sh-runfiles"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

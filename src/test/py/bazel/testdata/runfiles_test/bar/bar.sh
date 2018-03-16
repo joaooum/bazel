@@ -25,12 +25,12 @@ if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -z "${RUNFILES_DIR:-}" ]]; then
   fi
 fi
 if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/runfiles/runfiles.sh " \
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.sh " \
             "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"
 elif [[ -n "${RUNFILES_DIR:-}" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/runfiles/runfiles.sh"
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.sh"
 else
-  echo >&2 "ERROR: cannot find @bazel_tools//tools/runfiles:runfiles.sh"
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.sh"
   exit 1
 fi
 # --- end runfiles.sh initialization ---
