@@ -14,7 +14,7 @@
 # limitations under the License.
 
 set -euo pipefail
-
+# --- begin runfiles.sh initialization ---
 if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -z "${RUNFILES_DIR:-}" ]]; then
   if [[ -f "$0.runfiles_manifest" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
@@ -25,22 +25,15 @@ if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -z "${RUNFILES_DIR:-}" ]]; then
   fi
 fi
 if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-  if ! source "$(grep -m1 "^bazel_tools/tools/runfiles/runfiles.sh " \
-                 "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"; then
-    echo >&2 "ERROR: cannot find bazel_tools/tools/runfiles/runfiles.sh" \
-             "in ${RUNFILES_MANIFEST_FILE:-}"
-    exit 1
-  fi
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.sh " \
+            "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"
 elif [[ -n "${RUNFILES_DIR:-}" ]]; then
-  if ! source "${RUNFILES_DIR}/bazel_tools/tools/runfiles/runfiles.sh"; then
-    echo >&2 "ERROR: cannot find bazel_tools/tools/runfiles/runfiles.sh" \
-             "under ${RUNFILES_DIR}"
-    exit 1
-  fi
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.sh"
 else
-  echo >&2 "ERROR: cannot find @bazel_tools//tools/runfiles:runfiles.sh"
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.sh"
   exit 1
 fi
+# --- end runfiles.sh initialization ---
 
 
 if ! type rlocation >&/dev/null; then

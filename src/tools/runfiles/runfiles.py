@@ -191,8 +191,6 @@ class _ManifestBased(object):
         # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": directory,
-        "RUNFILES_LIBRARY_SH":
-            self.RlocationChecked("bazel_tools/tools/runfiles/runfiles.sh"),
     }
 
 
@@ -218,6 +216,4 @@ class _DirectoryBased(object):
         # TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": self._runfiles_root,
-        "RUNFILES_LIBRARY_SH":
-            self.RlocationChecked("bazel_tools/tools/runfiles/runfiles.sh"),
     }

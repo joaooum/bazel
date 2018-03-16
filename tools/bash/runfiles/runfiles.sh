@@ -26,7 +26,7 @@
 #      sh_binary(
 #          name = "my_binary",
 #          ...
-#          deps = ["@bazel_tools//tools/runfiles:sh-runfiles"],
+#          deps = ["@bazel_tools//tools/bash/runfiles"],
 #      )
 #
 # 2. Source the runfiles library.
@@ -48,12 +48,12 @@
 #        fi
 #      fi
 #      if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-#        source "$(grep -m1 "^bazel_tools/tools/runfiles/runfiles.sh " \
+#        source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.sh " \
 #                  "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)"
 #      elif [[ -n "${RUNFILES_DIR:-}" ]]; then
-#        source "${RUNFILES_DIR}/bazel_tools/tools/runfiles/runfiles.sh"
+#        source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.sh"
 #      else
-#        echo >&2 "ERROR: cannot find @bazel_tools//tools/runfiles:runfiles.sh"
+#        echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.sh"
 #        exit 1
 #      fi
 #      # --- end runfiles.sh initialization ---
@@ -100,8 +100,8 @@ export -f rlocation
 
 # Exports the environment variables that subprocesses may need to use runfiles.
 # If a subprocess is a Bazel-built binary rule that also uses the runfiles
-# libraries under @bazel_tools//tools/runfiles, then that binary needs these
-# envvars in order to initialize its own runfiles library.
+# libraries under @bazel_tools//tools/bash/runfiles, then that binary needs
+# these envvars in order to initialize its own runfiles library.
 function runfiles_export_envvars() {
   if [[ -z "${RUNFILES_DIR:-}" ]]; then
     if [[ "${RUNFILES_MANIFEST_FILE:-}" =~ /MANIFEST$ ]]; then

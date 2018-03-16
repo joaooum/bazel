@@ -23,7 +23,6 @@ filegroup(
         "runfiles.cc",
         "runfiles.h",
         "runfiles.py",
-        "runfiles.sh",
         "//src/tools/runfiles/java/com/google/devtools/build/runfiles:embedded_tools",
     ],
     visibility = ["//src:__pkg__"],
@@ -68,20 +67,6 @@ cc_test(
         "//src/main/cpp/util:file",
         "//third_party:gtest",
     ],
-)
-
-sh_library(
-    name = "runfiles_sh_lib",
-    srcs = ["runfiles.sh"],
-)
-
-sh_test(
-    name = "runfiles_sh_test",
-    srcs = select({
-        "//src/conditions:windows": ["runfiles_windows_test.sh"],
-        "//conditions:default": ["runfiles_posix_test.sh"],
-    }),
-    deps = [":runfiles_sh_lib"],
 )
 
 test_suite(

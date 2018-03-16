@@ -9,8 +9,3 @@ py_library(
     name = "py-runfiles",
     srcs = ["runfiles.py"],
 )
-
-sh_library(
-    name = "sh-runfiles",
-    srcs = ["runfiles.sh"],
-)
