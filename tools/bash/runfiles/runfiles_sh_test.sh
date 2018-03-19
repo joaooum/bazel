@@ -180,7 +180,6 @@ function test_directory_based_envvars() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  echo "DEBUG: runfiles_sh_path=($runfiles_sh_path)"
   source "$runfiles_sh_path"
 
   runfiles_export_envvars
