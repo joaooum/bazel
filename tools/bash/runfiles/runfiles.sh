@@ -18,6 +18,8 @@
 #
 # This script requires that at least one of $RUNFILES_MANIFEST_FILE or
 # $RUNFILES_DIR be set, otherwise the script fails.
+# If $RUNFILES_MANIFEST_ONLY is set to 1 or if $RUNFILES_DIR is empty, then the
+# script uses $RUNFILES_MANIFEST_FILE. Otherwise the script uses $RUNFILES_DIR.
 #
 # Usage:
 #
@@ -34,7 +36,6 @@
 #    look up the library's runtime location, we have a chicken-and-egg problem.
 #    Therefore you need to insert the following code snippet to the top of your
 #    main script:
-#
 #
 #      set -euo pipefail
 #      # --- begin runfiles.sh initialization ---
@@ -78,6 +79,18 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+if [[ "${RUNFILES_MANIFEST_ONLY:-0}" == "1" || -z "${RUNFILES_DIR:-}" ]]; then
+  if [[ -z "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+    echo >&2 "ERROR: RUNFILES_MANIFEST_ONLY=1 but RUNFILES_MANIFEST_FILE is" \
+             "not set"
+    exit 1
+  fi
+elif [[ -z "${RUNFILES_DIR:-}" ]]; then
+  echo >&2 "ERROR: RUNFILES_MANIFEST_ONLY is not 1, but RUNFILES_DIR is also" \
+           "not set"
+  exit 1
+fi
+
 # Print to stdout the runtime location of a data-dependency
 # $1 is the the runfiles-relative path of the data-dependency.
 # The function fails if $1 contains "..". If $1 is absolute, the function prints
@@ -88,11 +101,25 @@ function rlocation() {
   elif [[ "$1" =~ \.\. ]]; then
     echo >&2 "ERROR: rlocation($1): contains uplevel references"
     exit 1
+  elif [[ "$1" == \\* ]]; then
+    echo >&2 "ERROR: rlocation($1): absolute path without drive name"
+    exit 1
   else
-    if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
-      grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-
-    else
+    if [[ "${RUNFILES_MANIFEST_ONLY:-0}" == 1 || -z "${RUNFILES_DIR:-}" ]]; then
+      if [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+        grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-
+      else
+        echo >&2 "ERROR: rlocation($1): RUNFILES_MANIFEST_ONLY=1 but"
+                 "RUNFILES_MANIFEST_FILE is undefined, or both"
+                 "RUNFILES_MANIFEST_FILE and RUNFILES_DIR are undefined"
+        exit 1
+      fi
+    elif [[ -n "${RUNFILES_DIR}" ]]; then
       echo "${RUNFILES_DIR}/$1"
+    else
+      echo >&2 "ERROR: rlocation($1): cannot look up runfiles,"
+               "RUNFILES_MANIFEST_FILE and RUNFILES_DIR are undefined"
+      exit 1
     fi
   fi
 }
@@ -104,17 +131,17 @@ export -f rlocation
 # these envvars in order to initialize its own runfiles library.
 function runfiles_export_envvars() {
   if [[ -z "${RUNFILES_DIR:-}" ]]; then
-    if [[ "${RUNFILES_MANIFEST_FILE:-}" =~ /MANIFEST$ ]]; then
+    if [[ "${RUNFILES_MANIFEST_FILE:-}" == */MANIFEST ]]; then
       export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%/MANIFEST}"
-    else
+    elif [[ "${RUNFILES_MANIFEST_FILE:-}" == *.runfiles_manifest ]]; then
       export RUNFILES_DIR="${RUNFILES_MANIFEST_FILE%_manifest}"
     fi
   fi
   if [[ -z "${RUNFILES_MANIFEST_FILE:-}" && -n "${RUNFILES_DIR:-}" ]]; then
     export RUNFILES_MANIFEST_FILE=${RUNFILES_DIR}/MANIFEST
   fi
-  export "RUNFILES_MANIFEST_FILE=${RUNFILES_MANIFEST_FILE:-}"
-  export "RUNFILES_DIR=${RUNFILES_DIR:-}"
-  export "JAVA_RUNFILES=${RUNFILES_DIR:-}"
+  export RUNFILES_MANIFEST_FILE="${RUNFILES_MANIFEST_FILE:-}"
+  export RUNFILES_DIR="${RUNFILES_DIR:-}"
+  export JAVA_RUNFILES="${RUNFILES_DIR:-}"
 }
 export -f runfiles_export_envvars
