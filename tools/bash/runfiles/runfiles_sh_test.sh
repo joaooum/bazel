@@ -20,16 +20,21 @@ function _log_base() {
   prefix=$1
   line=$2
   shift 2
-  echo >&2 "${prefix}[$(basename "${BASH_SOURCE[0]}"):$line ($(date "+%H:%M:%S %z"))] $*"
+  echo >&2 "${prefix}[$(basename "${BASH_SOURCE[0]}"):${BASH_LINENO[2]} ($(date "+%H:%M:%S %z"))] $*"
 }
 
 function fail() {
-  _log_base "FAILED" "${BASH_LINENO[0]}" "$@"
+  _log_base "FAILED" "$@"
   exit 1
 }
 
+function log_fail() {
+  # non-fatal version of fail()
+  _log_base "FAILED" "$@"
+}
+
 function log_info() {
-  _log_base "INFO" "${BASH_LINENO[0]}" "$@"
+  _log_base "INFO" "$@"
 }
 
 which true >&/dev/null || fail "cannot locate GNU coreutils"
@@ -55,7 +60,7 @@ function find_runfiles_sh() {
     [[ -n "${RUNFILES_MANIFEST_FILE:-}" ]] \
         || fail "RUNFILES_MANIFEST_FILE is undefined"
     local runfiles_sh=$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.sh " \
-                        "$RUNFILES_MANIFEST_FILE")
+                        "$RUNFILES_MANIFEST_FILE" | cut -d" " -f2-)
   else
     local runfiles_sh=$(dirname $0)/runfiles.sh
   fi
@@ -73,8 +78,9 @@ function test_sourcing_runfiles_sh_requires_envvars() {
       source "$runfiles_sh_path"); then
     fail
   fi
-  if ! (RUNFILES_DIR=foo RUNFILES_MANIFEST_FILE= RUNFILES_MANIFEST_ONLY= \
-      source "$runfiles_sh_path"); then
+  # Assert that providing at one of the envvars is enough to source runfiles.sh.
+  if ! (RUNFILES_DIR=foo RUNFILES_MANIFEST_FILE= \
+        source "$runfiles_sh_path"); then
     fail
   fi
 }
@@ -83,7 +89,7 @@ function test_rlocation_call_requires_envvars() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
  
   if ! (rlocation "foo"); then
     fail
@@ -98,10 +104,13 @@ function test_rlocation_argument_validation() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
  
+  # Test valid inputs to make sure rlocation works fine.
   (rlocation "foo") || fail
   (rlocation "/foo") || fail
+
+  # Test invalid inputs to make sure rlocation catches these.
   if (rlocation "foo/.." >&/dev/null); then
     fail
   fi
@@ -114,7 +123,7 @@ function test_rlocation_abs_path() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
 
   if is_windows; then
     [[ "$(rlocation "c:/Foo")" == "c:/Foo" ]] || fail
@@ -134,7 +143,7 @@ EOF
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
   export RUNFILES_MANIFEST_ONLY=1
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
 
   [[ -z "$(rlocation a)" ]] || fail
   [[ "$(rlocation a/b)" == "c/d" ]] || fail
@@ -149,7 +158,7 @@ function test_manifest_based_envvars() {
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
   export RUNFILES_MANIFEST_ONLY=1
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
 
   runfiles_export_envvars
   [[ "${RUNFILES_DIR:-}" == "$tmpdir/foo.runfiles" ]] || fail
@@ -161,7 +170,7 @@ function test_init_directory_based_runfiles() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  source "$runfiles_sh_path"
 
   [[ "$(rlocation a)" == "mock/runfiles/a" ]] || fail
   [[ "$(rlocation a/b)" == "mock/runfiles/a/b" ]] || fail
@@ -171,7 +180,8 @@ function test_directory_based_envvars() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=
   export RUNFILES_MANIFEST_ONLY=
-  source "$runfiles_sh_path" || fail "failed to source '$runfiles_sh_path'"
+  echo "DEBUG: runfiles_sh_path=($runfiles_sh_path)"
+  source "$runfiles_sh_path"
 
   runfiles_export_envvars
   [[ "${RUNFILES_DIR:-}" == "mock/runfiles" ]] || fail
@@ -188,36 +198,13 @@ function main() {
   for t in $tests; do
     log_info "Testing $i/$count: $t"
     $t
-    log_info "Passed."
+#     if ($t); then
+#       log_info "Passed."
+#     else
+#       log_fail "$t failed"
+#     fi
     i=$(($i+1))
   done
-#  # Exercise the functions in runfiles.sh.
-#
-#  # Assert that runfiles.sh attempts to look up the runfiles directory.
-#  # It will find the actual runfiles directory of this test.
-#  
-#  [[ "$RUNFILES_DIR" == *.runfiles ]] \
-#      || fail "'$runfiles_sh_path' cannot find the runfiles directory"
-#
-#  # Set a mock $RUNFILES_DIR.
-#  # Unset `rlocation` so runfiles.sh will define it again.
-#  export RUNFILES_DIR="/path/to runfiles"
-#  unset is_absolute
-#  source "$runfiles_sh_path" || fail "cannot source '$runfiles_sh_path'"
-#
-#
-#  if is_absolute "d:/foo"; then
-#    fail "expected d:/foo not to be absolute"
-#  fi
-#  if is_absolute "D:\\foo"; then
-#    fail "expected D:\\foo not to be absolute"
-#  fi
-#  is_absolute "/foo" || fail "expected /foo to be absolute"
-#
-#  [[ "$(rlocation "some/runfile")" = "/path/to runfiles/some/runfile" ]] \
-#    || fail "rlocation 1 failed"
-#  [[ "$(rlocation "/some absolute/runfile")" = "/some absolute/runfile" ]] \
-#    || fail "rlocation 2 failed"
 }
 
 main
