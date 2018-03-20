@@ -44,7 +44,7 @@ function fail() {
 [ -n "${RUNFILES_MANIFEST_FILE:-}" ] \
   || log_fatal "RUNFILES_MANIFEST_FILE is undefined or empty"
 runfiles_sh="$(cat "$RUNFILES_MANIFEST_FILE" \
-  | fgrep "io_bazel/src/tools/runfiles/runfiles.sh" \
+  | fgrep "io_bazel/tools/bash/runfiles/runfiles.sh" \
   | cut -d' ' -f2-)"
 [ -n "$runfiles_sh" ] || fail "cannot find runfiles.sh"
 
