@@ -227,7 +227,7 @@ sh_test(
         ":discard_graph_edges_lib.sh",
         ":test-deps",
     ],
-    shard_count = 6,
+    shard_count = 1,
 )
 
 sh_test(
